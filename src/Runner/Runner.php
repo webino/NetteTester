@@ -79,10 +79,20 @@ class Runner
 		}
 		$this->jobCount = count($this->jobs) + array_sum($this->results);
 
+		$done = array();
+		$pending = array();
+
 		$this->installInterruptHandler();
-		while (($this->jobs || $running) && !$this->isInterrupted()) {
+		while (($this->jobs || $running || $pending) && !$this->isInterrupted()) {
 			for ($i = count($running); $this->jobs && $i < $this->threadCount; $i++) {
-				$running[] = $job = array_shift($this->jobs);
+                $job = array_shift($this->jobs);
+
+                // depend annotation support
+                if (count($this->jobs) > 1 && $job->depend($done, $pending)) {
+                    continue;
+                }
+
+				$running[] = $job;
 				$async = $this->threadCount > 1 && (count($running) + count($this->jobs) > 1);
 				$job->run($async ? $job::RUN_ASYNC : NULL);
 			}
@@ -98,9 +108,15 @@ class Runner
 
 				if (!$job->isRunning()) {
 					$this->testHandler->assess($job);
+                    $done[$job->getName()] = true;
 					unset($running[$key]);
 				}
 			}
+
+            if (empty($this->jobs) && empty($running)) {
+                $this->jobs = $pending;
+                $pending = array();
+            }
 		}
 		$this->removeInterruptHandler();
 

@@ -160,6 +160,31 @@ class Job
 		return FALSE;
 	}
 
+    /**
+     * Returns true if job depends on other unfinished job
+     *
+     * @param array $done Jobs done
+     * @param array &$pending Jobs pending
+     * @return bool
+     */
+	public function depend(array$done, array &$pending)
+    {
+        $annotations = Helpers::parseDocComment(file_get_contents($this->file));
+        if (empty($annotations['depend'])) {
+            return false;
+        }
+
+        $depend = explode(' ', $annotations['depend']);
+        foreach ($depend as $name) {
+            if (!isset($done[$name])) {
+                $pending[] = $this;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 
 	/**
 	 * Returns test file path.
@@ -170,6 +195,15 @@ class Job
 		return $this->file;
 	}
 
+    /**
+     * Returns test name.
+     * @return string
+     */
+    public function getName()
+    {
+        $parts = explode('.phpt', basename($this->file));
+        return !empty($parts[0]) ? $parts[0] : '';
+    }
 
 	/**
 	 * Returns script arguments.
